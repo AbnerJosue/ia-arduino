@@ -1,21 +1,21 @@
 import dlib
 import sys
 import cv2
+# from fastapi import FastAPI, UploadFile, File2
+import numpy as np
 import time
 import numpy as np
 from scipy.spatial import distance as dist
 from threading import Thread
 import playsound
-#import Queue as queue
-
 import queue
-#import Queue
-# from light_variability import adjust_gamma
+import serial
 
+arduino = serial.Serial('COM9', 9600) 
 FACE_DOWNSAMPLE_RATIO = 1.5
 RESIZE_HEIGHT = 460
 
-thresh = 0.27
+thresh = 0.27 # Ajusta este valor según sea necesario
 modelPath = "models/shape_predictor_70_face_landmarks.dat"
 sound_path = "alarm.wav"
 
@@ -165,7 +165,6 @@ while(validFrames < dummyFrames):
                         fy = 1/IMAGE_RESIZE, 
                         interpolation = cv2.INTER_LINEAR)
 
-    # adjusted = gamma_correction(frame)
     adjusted = histogram_equalization(frame)
 
     landmarks = getLandmarks(adjusted)
@@ -181,11 +180,6 @@ while(validFrames < dummyFrames):
 
     else:
         totalTime += timeLandmarks
-        # cv2.putText(frame, "Caliberation in Progress", (200, 30), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
-        # cv2.imshow("Blink Detection Demo", frame)
-        
-    # if cv2.waitKey(1) & 0xFF == 27:
-    #         sys.exit()
 
 print("Caliberation Complete!")
 
@@ -232,16 +226,24 @@ if __name__ == "__main__":
                 cv2.circle(frame, (landmarks[rightEyeIndex[i]][0], landmarks[rightEyeIndex[i]][1]), 1, (0, 0, 255), -1, lineType=cv2.LINE_AA)
 
             if drowsy:
-                cv2.putText(frame, "! ! ! DROWSINESS ALERT ! ! !", (70, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+                cv2.putText(frame, "! ! ! SOMNOLENCIA ALERTA ! ! !", (70, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
                 if not ALARM_ON:
                     ALARM_ON = True
                     threadStatusQ.put(not ALARM_ON)
                     thread = Thread(target=soundAlert, args=(sound_path, threadStatusQ,))
                     thread.setDaemon(True)
                     thread.start()
+                    arduino.write(b'1')  # Enciende las luces LED
+                    arduino.write(b'2')  # Activa los pidevias
+                    arduino.write(b'3')  # Enciende la luz indicadora
+                    arduino.write(b'4')  # Enciende la luz de cabina
+                    arduino.write(b'5')  # Activa el motor
+                    arduino.write(b'6')  # Activa la bocina
 
             else:
                 cv2.putText(frame, "Blinks : {}".format(blinkCount), (460, 80), cv2.FONT_HERSHEY_COMPLEX, 0.8, (0,0,255), 2, cv2.LINE_AA)
+                arduino.write(b'1')
+
                 # (0, 400)
                 ALARM_ON = False
 
@@ -267,4 +269,3 @@ if __name__ == "__main__":
     capture.release()
     vid_writer.release()
     cv2.destroyAllWindows()
-
